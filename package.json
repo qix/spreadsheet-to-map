@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "@google/maps": "^0.5.5",
+    "bluebird": "^3.5.4",
+    "google-spreadsheet": "^2.0.7"
+  }
+}
