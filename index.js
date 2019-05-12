@@ -17,6 +17,14 @@ const SERVICE_ACCOUNT = {
 // https://docs.google.com/spreadsheets/d/13K8tJhXQmQ1iTswiBigd0s7lUtvuNInkCAFr4qSug6w
 const SPREADSHEET_ID = `13K8tJhXQmQ1iTswiBigd0s7lUtvuNInkCAFr4qSug6w`;
 
+// For geocoding searches (only a suggestion)
+const BOUNDS = {
+  south: 37.732201,
+  west: -122.51681,
+  north: 37.821658,
+  east: -122.381396
+};
+
 const googleMapsClient = require("@google/maps").createClient({
   key: API_KEY,
   Promise: Promise
@@ -69,13 +77,6 @@ async function fetchRows() {
     updateCells.push(cell);
   }
 
-  const SF_BOUNDS = {
-    south: 37.732201,
-    west: -122.51681,
-    north: 37.821658,
-    east: -122.381396
-  };
-
   const rv = await Promise.all(
     rows.map(async row => {
       if (row.Location.value === "" && row.Src.value === "") {
@@ -93,7 +94,7 @@ async function fetchRows() {
           await googleMapsClient
             .geocode({
               address: row.Location.value,
-              bounds: SF_BOUNDS
+              bounds: BOUNDS
             })
             .asPromise()
             .then(response => {
