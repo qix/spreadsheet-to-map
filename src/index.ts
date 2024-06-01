@@ -4,13 +4,62 @@ import {
   LatLngBounds,
 } from "@googlemaps/google-maps-services-js";
 import { JWT } from "google-auth-library";
-
+import { parse } from "url";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-
+import escapeHtml from "escape-html";
 const GOOGLE_GEOCODE_API_KEY = process.env.GOOGLE_GEOCODE_API_KEY!;
 
-const mapJsText =
-  '"use strict";\n\nfunction initMap() {\n  const mapOptions = {\n    zoom: 10,\n    center: new google.maps.LatLng(0, 0)\n  };\n  const map = new google.maps.Map(document.getElementById("map"), mapOptions);\n  const bounds = new google.maps.LatLngBounds();\n  const infowindow = new google.maps.InfoWindow({\n    content: ""\n  });\n  for (const loc of window._LOCATIONS) {\n    if (loc.lat && loc.lon && loc.icon !== "none") {\n      const marker = createMarker(map, loc, infowindow);\n      bounds.extend(marker.position);\n    }\n  }\n  map.fitBounds(bounds);\n}\n\nfunction createMarker(map, loc, infowindow) {\n  // Icons\n  // https://stackoverflow.com/questions/8248077/google-maps-v3-standard-icon-shadow-names-equiv-of-g-default-icon-in-v2\n  const marker = new google.maps.Marker({\n    icon: `http://maps.google.com/mapfiles/ms/icons/${loc.icon}.png`,\n    position: {\n      lat: parseFloat(loc.lat),\n      lng: parseFloat(loc.lon)\n    },\n    map: map,\n    title: loc.q\n  });\n  google.maps.event.addListener(marker, "click", function() {\n    infowindow.setContent(\n      `<div>\n        <p><strong>${loc.q}: ${loc.answer || ""} [${loc.owner}]</strong></p>\n        <p>${loc.location}</p>\n        <p>${loc.addr}</p>\n      </div>`\n    );\n    infowindow.open(map, marker);\n  });\n  return marker;\n}\n';
+const mapJsText = `"use strict";
+
+function initMap() {
+  const mapOptions = {
+    zoom: 10,
+    center: new google.maps.LatLng(0, 0),
+  };
+  const map = new google.maps.Map(document.getElementById("map"), mapOptions);
+  const bounds = new google.maps.LatLngBounds();
+  const infowindow = new google.maps.InfoWindow({
+    content: "",
+  });
+  
+  const markers = window._LOCATIONS.filter(loc => {
+    return loc.lat && loc.lon && loc.icon !== "none";
+  });
+  markers.forEach(loc => {
+    const marker = createMarker(map, loc, infowindow);
+    bounds.extend(marker.position);
+  });
+  if (!markers.length) {
+    bounds.union(new google.maps.LatLngBounds(window._DEFAULT_BOUNDS));
+  }
+  map.fitBounds(bounds);
+}
+
+function createMarker(map, loc, infowindow) {
+  // Icons
+  // https://stackoverflow.com/questions/8248077/google-maps-v3-standard-icon-shadow-names-equiv-of-g-default-icon-in-v2
+  const marker = new google.maps.Marker({
+    icon: \`http://maps.google.com/mapfiles/ms/icons/\${loc.icon}.png\`,
+    position: {
+      lat: parseFloat(loc.lat),
+      lng: parseFloat(loc.lon),
+    },
+    map: map,
+    title: loc.q,
+  });
+  google.maps.event.addListener(marker, "click", function () {
+    infowindow.setContent(
+      \`<div>
+        <p><strong>\${loc.q}: \${loc.answer || ""} [\${loc.owner}]</strong></p>
+        <p>\${loc.location}</p>
+        <p>\${loc.addr}</p>
+      </div>\`
+    );
+    infowindow.open(map, marker);
+  });
+  return marker;
+}
+`;
 
 // Initialize auth - see https://theoephraim.github.io/node-google-spreadsheet/#/guides/authentication
 const serviceAccountAuth = new JWT({
@@ -21,20 +70,21 @@ const serviceAccountAuth = new JWT({
   scopes: ["https://www.googleapis.com/auth/spreadsheets"],
 });
 
-// ID of the spreadsheet from URL
-// Example spreadsheet at:
-// https://docs.google.com/spreadsheets/d/13K8tJhXQmQ1iTswiBigd0s7lUtvuNInkCAFr4qSug6w
-const SPREADSHEET_ID = `1icdQJ8zfyBqO1YETOqkqVKiU6iUcU0axyodNMowymhY`;
-
 // For geocoding searches (only a suggestion)
+const SF_BOUNDS = {
+  north: 37.821658,
+  east: -122.381396,
+  south: 37.732201,
+  west: -122.51681,
+};
 const BOUNDS: LatLngBounds = {
   northeast: {
-    lat: 37.821658,
-    lng: -122.381396,
+    lat: SF_BOUNDS.north,
+    lng: SF_BOUNDS.east,
   },
   southwest: {
-    lat: 37.732201,
-    lng: -122.51681,
+    lat: SF_BOUNDS.south,
+    lng: SF_BOUNDS.west,
   },
 };
 
@@ -49,30 +99,15 @@ function bestAddr(options) {
   }
   return options[0];
 }
-async function fetchRows() {
-  const doc = new GoogleSpreadsheet(SPREADSHEET_ID, serviceAccountAuth);
+async function fetchRows(spreadsheetId: string, tab: string) {
+  const doc = new GoogleSpreadsheet(spreadsheetId, serviceAccountAuth);
   await doc.loadInfo();
-  const worksheet = doc.sheetsByIndex[0];
+  const worksheet = doc.sheetsByTitle[tab];
+  if (!worksheet) {
+    throw new Error("Could not find tab with title: " + tab);
+  }
 
   const rows = await worksheet.getRows({});
-
-  /* Reconstruct all the rows
-  const columns = {};
-  const rows = [];
-  for (const cell of cells) {
-    console.log(cell);
-    if (cell.row === 1) {
-      columns[cell.value] = cell.col;
-      columns[cell.col] = cell.value;
-    } else {
-      if (cell.row > rows.length + 1) {
-        rows.push({});
-      }
-      if (columns[cell.col]) {
-        rows[rows.length - 1][columns[cell.col]] = cell;
-      }
-    }
-  }*/
 
   const rv = await Promise.all(
     rows.map(async (row) => {
@@ -148,13 +183,26 @@ async function fetchRows() {
 
 export const config = {};
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const rows = await fetchRows();
-  res.setHeader("content-type", "text/html");
-  res.send(`<!DOCTYPE html>
+async function tabsPage(spreadsheetId: string) {
+  const doc = new GoogleSpreadsheet(spreadsheetId, serviceAccountAuth);
+  await doc.loadInfo();
+
+  return doc.sheetsByIndex
+    .map((sheet) => {
+      return `<a href="${encodeURIComponent(
+        spreadsheetId
+      )}/${encodeURIComponent(sheet.title)}">${escapeHtml(
+        sheet.title
+      )}</a><br/>`;
+    })
+    .join("\n");
+}
+async function respondMap(spreadsheetId: string, tab: string) {
+  const rows = await fetchRows(spreadsheetId, tab);
+  return `<!DOCTYPE html>
       <html>
         <head>
-          <title>Simple Map</title>
+          <title>${escapeHtml(`Map ${tab}`)}</title>
           <meta name="viewport" content="initial-scale=1.0">
           <meta charset="utf-8">
           <style>
@@ -174,6 +222,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         <body>
           <div id="map"></div>
           <script>
+            window._DEFAULT_BOUNDS = ${JSON.stringify(SF_BOUNDS)};
             window._LOCATIONS = ${JSON.stringify(rows)};
           </script>
           <script>${mapJsText}</script>
@@ -181,5 +230,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             src="https://maps.googleapis.com/maps/api/js?key=${GOOGLE_GEOCODE_API_KEY}&callback=initMap"
           ></script>
         </body>
-      </html>`);
+      </html>`;
+}
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const parsed = parse(req.url);
+  const parts = parsed.pathname.split("/");
+  let response: string;
+
+  try {
+    if (parts.length === 3) {
+      response = await respondMap(parts[1], parts[2]);
+    } else if (parts.length === 2) {
+      response = await tabsPage(parts[1]);
+    } else {
+      response = `<p>Please use ${escapeHtml("/spreadsheet-id/tab")}</p>`;
+    }
+  } catch (err) {
+    response = err.toString();
+  }
+
+  res.setHeader("content-type", "text/html");
+  res.send(response);
 }

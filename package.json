@@ -8,6 +8,7 @@
     "@googlemaps/google-maps-services-js": "^3.4.0",
     "@googlemaps/url-signature": "1.0.32",
     "@vercel/node": "^3.1.6",
+    "escape-html": "^1.0.3",
     "express": "^4.19.2",
     "google-auth-library": "^9.10.0",
     "google-spreadsheet": "^4.1.2"

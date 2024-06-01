@@ -3,18 +3,21 @@
 function initMap() {
   const mapOptions = {
     zoom: 10,
-    center: new google.maps.LatLng(0, 0)
+    center: new google.maps.LatLng(0, 0),
   };
   const map = new google.maps.Map(document.getElementById("map"), mapOptions);
   const bounds = new google.maps.LatLngBounds();
   const infowindow = new google.maps.InfoWindow({
-    content: ""
+    content: "",
   });
   for (const loc of window._LOCATIONS) {
     if (loc.lat && loc.lon && loc.icon !== "none") {
       const marker = createMarker(map, loc, infowindow);
       bounds.extend(marker.position);
     }
+  }
+  if (!window._LOCATIONS.length) {
+    bounds.extend(window._DEFAULT_BOUNDS);
   }
   map.fitBounds(bounds);
 }
@@ -26,12 +29,12 @@ function createMarker(map, loc, infowindow) {
     icon: `http://maps.google.com/mapfiles/ms/icons/${loc.icon}.png`,
     position: {
       lat: parseFloat(loc.lat),
-      lng: parseFloat(loc.lon)
+      lng: parseFloat(loc.lon),
     },
     map: map,
-    title: loc.q
+    title: loc.q,
   });
-  google.maps.event.addListener(marker, "click", function() {
+  google.maps.event.addListener(marker, "click", function () {
     infowindow.setContent(
       `<div>
         <p><strong>${loc.q}: ${loc.answer || ""} [${loc.owner}]</strong></p>
