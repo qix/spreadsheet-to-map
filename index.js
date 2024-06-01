@@ -10,6 +10,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 import { GoogleSpreadsheet } from "google-spreadsheet";
 import { Client as MapsClient, } from "@googlemaps/google-maps-services-js";
 import { JWT } from "google-auth-library";
+import express from "express";
+const app = express();
 const GOOGLE_GEOCODE_API_KEY = process.env.GOOGLE_GEOCODE_API_KEY;
 // Initialize auth - see https://theoephraim.github.io/node-google-spreadsheet/#/guides/authentication
 const serviceAccountAuth = new JWT({
@@ -138,10 +140,13 @@ function fetchRows() {
         return rv;
     });
 }
-fetchRows();
-module.exports = (req, res) => {
-    fetchRows().then((rows) => {
-        res.end(`<!DOCTYPE html>
+app.listen(8000, () => {
+    console.log(`[server]: Server is running at http://localhost:8000`);
+});
+app.use("/static", express.static("static"));
+app.get("/", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const rows = yield fetchRows();
+    res.send(`<!DOCTYPE html>
     <html>
       <head>
         <title>Simple Map</title>
@@ -166,11 +171,10 @@ module.exports = (req, res) => {
         <script>
           window._LOCATIONS = ${JSON.stringify(rows)};
         </script>
-        <script src="./map.js"></script>
+        <script src="./static/map.js"></script>
         <script
           src="https://maps.googleapis.com/maps/api/js?key=${GOOGLE_GEOCODE_API_KEY}&callback=initMap"
         ></script>
       </body>
     </html>`);
-    });
-};
+}));
