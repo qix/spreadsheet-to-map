@@ -144,6 +144,8 @@ async function fetchRows() {
   return rv;
 }
 
+export const config = {};
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const mapJs = await readFile("static/map.js", {
     encoding: "utf-8",
