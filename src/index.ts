@@ -4,11 +4,13 @@ import {
   LatLngBounds,
 } from "@googlemaps/google-maps-services-js";
 import { JWT } from "google-auth-library";
-import { readFile } from "fs/promises";
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 const GOOGLE_GEOCODE_API_KEY = process.env.GOOGLE_GEOCODE_API_KEY!;
+
+const mapJsText =
+  '"use strict";\n\nfunction initMap() {\n  const mapOptions = {\n    zoom: 10,\n    center: new google.maps.LatLng(0, 0)\n  };\n  const map = new google.maps.Map(document.getElementById("map"), mapOptions);\n  const bounds = new google.maps.LatLngBounds();\n  const infowindow = new google.maps.InfoWindow({\n    content: ""\n  });\n  for (const loc of window._LOCATIONS) {\n    if (loc.lat && loc.lon && loc.icon !== "none") {\n      const marker = createMarker(map, loc, infowindow);\n      bounds.extend(marker.position);\n    }\n  }\n  map.fitBounds(bounds);\n}\n\nfunction createMarker(map, loc, infowindow) {\n  // Icons\n  // https://stackoverflow.com/questions/8248077/google-maps-v3-standard-icon-shadow-names-equiv-of-g-default-icon-in-v2\n  const marker = new google.maps.Marker({\n    icon: `http://maps.google.com/mapfiles/ms/icons/${loc.icon}.png`,\n    position: {\n      lat: parseFloat(loc.lat),\n      lng: parseFloat(loc.lon)\n    },\n    map: map,\n    title: loc.q\n  });\n  google.maps.event.addListener(marker, "click", function() {\n    infowindow.setContent(\n      `<div>\n        <p><strong>${loc.q}: ${loc.answer || ""} [${loc.owner}]</strong></p>\n        <p>${loc.location}</p>\n        <p>${loc.addr}</p>\n      </div>`\n    );\n    infowindow.open(map, marker);\n  });\n  return marker;\n}\n';
 
 // Initialize auth - see https://theoephraim.github.io/node-google-spreadsheet/#/guides/authentication
 const serviceAccountAuth = new JWT({
@@ -147,9 +149,6 @@ async function fetchRows() {
 export const config = {};
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const mapJs = await readFile("static/map.js", {
-    encoding: "utf-8",
-  });
   const rows = await fetchRows();
   res.setHeader("content-type", "text/html");
   res.send(`<!DOCTYPE html>
@@ -177,7 +176,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           <script>
             window._LOCATIONS = ${JSON.stringify(rows)};
           </script>
-          <script>${mapJs}</script>
+          <script>${mapJsText}</script>
           <script
             src="https://maps.googleapis.com/maps/api/js?key=${GOOGLE_GEOCODE_API_KEY}&callback=initMap"
           ></script>
