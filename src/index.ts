@@ -139,7 +139,7 @@ async function fetchRows() {
         addr: row.get("Addr"),
         owner: row.get("Owner"),
         points: row.get("Pts"),
-        icon: row.get("Icon"),
+        icon: row.get("Icon") || "tree",
       };
     })
   );
