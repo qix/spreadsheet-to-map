@@ -144,13 +144,14 @@ async function fetchRows() {
   return rv;
 }
 
-app.listen(8000, () => {
-  console.log(`[server]: Server is running at http://localhost:8000`);
+app.listen(3000, () => {
+  console.log(`[server]: Server is running at http://localhost:3000`);
 });
 
 app.use("/static", express.static("static"));
 app.get("/", async (req, res) => {
   const rows = await fetchRows();
+  res.setHeader("content-type", "text/html");
   res.send(`<!DOCTYPE html>
     <html>
       <head>
@@ -176,7 +177,7 @@ app.get("/", async (req, res) => {
         <script>
           window._LOCATIONS = ${JSON.stringify(rows)};
         </script>
-        <script src="./static/map.js"></script>
+        <script src="./static/3map.js"></script>
         <script
           src="https://maps.googleapis.com/maps/api/js?key=${GOOGLE_GEOCODE_API_KEY}&callback=initMap"
         ></script>
