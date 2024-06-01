@@ -4,9 +4,9 @@ import {
   LatLngBounds,
 } from "@googlemaps/google-maps-services-js";
 import { JWT } from "google-auth-library";
+import { readFile } from "fs/promises";
 
-import express from "express";
-const app = express();
+import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 const GOOGLE_GEOCODE_API_KEY = process.env.GOOGLE_GEOCODE_API_KEY!;
 
@@ -144,43 +144,41 @@ async function fetchRows() {
   return rv;
 }
 
-app.listen(3000, () => {
-  console.log(`[server]: Server is running at http://localhost:3000`);
-});
-
-app.use("/static", express.static("static"));
-app.get("/", async (req, res) => {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const mapJs = await readFile("static/map.js", {
+    encoding: "utf-8",
+  });
   const rows = await fetchRows();
   res.setHeader("content-type", "text/html");
   res.send(`<!DOCTYPE html>
-    <html>
-      <head>
-        <title>Simple Map</title>
-        <meta name="viewport" content="initial-scale=1.0">
-        <meta charset="utf-8">
-        <style>
-          /* Always set the map height explicitly to define the size of the div
-           * element that contains the map. */
-          #map {
-            height: 100%;
-          }
-          /* Optional: Makes the sample page fill the window. */
-          html, body {
-            height: 100%;
-            margin: 0;
-            padding: 0;
-          }
-        </style>
-      </head>
-      <body>
-        <div id="map"></div>
-        <script>
-          window._LOCATIONS = ${JSON.stringify(rows)};
-        </script>
-        <script src="./static/3map.js"></script>
-        <script
-          src="https://maps.googleapis.com/maps/api/js?key=${GOOGLE_GEOCODE_API_KEY}&callback=initMap"
-        ></script>
-      </body>
-    </html>`);
-});
+      <html>
+        <head>
+          <title>Simple Map</title>
+          <meta name="viewport" content="initial-scale=1.0">
+          <meta charset="utf-8">
+          <style>
+            /* Always set the map height explicitly to define the size of the div
+            * element that contains the map. */
+            #map {
+              height: 100%;
+            }
+            /* Optional: Makes the sample page fill the window. */
+            html, body {
+              height: 100%;
+              margin: 0;
+              padding: 0;
+            }
+          </style>
+        </head>
+        <body>
+          <div id="map"></div>
+          <script>
+            window._LOCATIONS = ${JSON.stringify(rows)};
+          </script>
+          <script>${mapJs}</script>
+          <script
+            src="https://maps.googleapis.com/maps/api/js?key=${GOOGLE_GEOCODE_API_KEY}&callback=initMap"
+          ></script>
+        </body>
+      </html>`);
+}
