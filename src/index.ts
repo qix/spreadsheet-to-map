@@ -235,13 +235,13 @@ async function respondMap(spreadsheetId: string, tab: string) {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const parsed = parse(req.url);
-  const parts = parsed.pathname.split("/");
+  const parts = parsed.pathname.split("/").filter((v) => v);
   let response: string;
 
   try {
-    if (parts.length === 3) {
+    if (parts.length === 2) {
       response = await respondMap(parts[1], parts[2]);
-    } else if (parts.length === 2) {
+    } else if (parts.length === 1) {
       response = await tabsPage(parts[1]);
     } else {
       response = `<p>Please use ${escapeHtml("/spreadsheet-id/tab")}</p>`;

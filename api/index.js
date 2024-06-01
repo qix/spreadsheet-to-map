@@ -231,13 +231,13 @@ function respondMap(spreadsheetId, tab) {
 export default function handler(req, res) {
     return __awaiter(this, void 0, void 0, function* () {
         const parsed = parse(req.url);
-        const parts = parsed.pathname.split("/");
+        const parts = parsed.pathname.split("/").filter((v) => v);
         let response;
         try {
-            if (parts.length === 3) {
+            if (parts.length === 2) {
                 response = yield respondMap(parts[1], parts[2]);
             }
-            else if (parts.length === 2) {
+            else if (parts.length === 1) {
                 response = yield tabsPage(parts[1]);
             }
             else {
